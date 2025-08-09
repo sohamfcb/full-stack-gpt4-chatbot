@@ -54,3 +54,17 @@ class Chatbot:
         for message_chunk, metadata in stream_generator:
             if hasattr(message_chunk, "content"):
                 yield message_chunk.content
+
+    def chat_history(self, thread_id: str):
+        history=self._compiled_graph.get_state(config=self.config).values
+        messages = history.get("messages", [])
+
+        # Convert each BaseMessage into a dict
+        serialized_messages = []
+        for msg in messages:
+            serialized_messages.append({
+                "type": msg.type,    # "human", "ai", "system"
+                "content": msg.content
+            })
+
+        return {"messages": serialized_messages}

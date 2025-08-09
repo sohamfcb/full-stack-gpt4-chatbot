@@ -1,5 +1,6 @@
 import requests
 import json
+import uuid
 
 def stream_text(thread_id: str, message: str):
     with requests.post(
@@ -11,4 +12,6 @@ def stream_text(thread_id: str, message: str):
             if line:
                 data = json.loads(line.decode("utf-8"))
                 yield data["content"]
-                # full_text += chunk
+
+def generate_thread_id():
+    return uuid.uuid4()
