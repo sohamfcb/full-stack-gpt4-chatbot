@@ -7,8 +7,9 @@ from .pydantic_models import ChatRequest
 app=FastAPI(debug=True)
 
 def stream_json(message: str, thread_id: str):
-    bot = Chatbot(model_name="gpt-4o", thread_id=thread_id).build_graph()
-    for chunk in bot.stream(message):
+    # bot = Chatbot(model_name="gpt-4o", thread_id=thread_id).build_graph()
+    bot = Chatbot(model_name="gpt-4o").build_graph(_sqlite=True)
+    for chunk in bot.stream(user_message=message, thread_id=thread_id):
         yield json.dumps({
             "thread_id": thread_id,
             "type": "message_chunk",
@@ -28,7 +29,14 @@ def home():
 
 @app.get("/chat_history")
 def get_chat_history(thread_id: str = Query(...)):
-    bot = Chatbot(model_name="gpt-4o", thread_id=thread_id).build_graph()
+    bot = Chatbot(model_name="gpt-4o").build_graph(_sqlite=True)
     history=bot.chat_history(thread_id=thread_id)
 
     return JSONResponse(status_code=200, content=history)
+
+@app.get("/all_threads")
+def get_threads():
+    bot=Chatbot(model_name="gpt-4o").build_graph(_sqlite=True)
+    threads=bot.get_chat_threads()
+
+    return JSONResponse(status_code=200, content={"response": threads})

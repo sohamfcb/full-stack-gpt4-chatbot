@@ -1,7 +1,7 @@
 import streamlit as st
 from langchain_core.messages import HumanMessage
 import requests
-from utils import stream_text, generate_thread_id
+from utils import stream_text, generate_thread_id, fetch_all_threads
 
 from dotenv import load_dotenv
 import os
@@ -32,7 +32,7 @@ if "thread_id" not in st.session_state:
     st.session_state["thread_id"]=generate_thread_id()
 
 if "chat_threads" not in st.session_state:
-    st.session_state["chat_threads"]=[]
+    st.session_state["chat_threads"]=fetch_all_threads()
 
 add_thread(st.session_state["thread_id"])
 
