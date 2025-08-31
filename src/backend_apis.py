@@ -5,6 +5,9 @@ from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.prebuilt import ToolNode, tools_condition
+
+from src.tools import get_tools
 
 import sqlite3
 
@@ -15,6 +18,8 @@ load_dotenv()
 os.environ["OPENAI_API_KEY"]=os.getenv("OPENAI_API_KEY")
 
 CHECKPOINTER = InMemorySaver()
+TOOLS = get_tools()
+TOOL_NODE = ToolNode(tools=TOOLS)
 
 class ChatState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
@@ -22,7 +27,7 @@ class ChatState(TypedDict):
 class Chatbot:
     def __init__(self, model_name: str):
         self.model_name=model_name
-        self.llm=ChatOpenAI(model=self.model_name)
+        self.llm=ChatOpenAI(model=self.model_name).bind_tools(tools=TOOLS)
         self.config = None
         self._compiled_graph=None
         self.checkpointer=None
@@ -35,9 +40,16 @@ class Chatbot:
     # Checkpointer
     def build_graph(self, _sqlite=False):
         graph = StateGraph(ChatState)
+
         graph.add_node("chat_node", self.chat_node)
+        graph.add_node("tools", TOOL_NODE)
+
         graph.add_edge(START, "chat_node")
-        graph.add_edge("chat_node", END)
+
+        graph.add_conditional_edges("chat_node", tools_condition)
+        graph.add_edge("tools", "chat_node")
+
+        # graph.add_edge("chat_node", END)
 
         if _sqlite:
             conn=sqlite3.connect(database="db/chatbot.db", check_same_thread=False)
@@ -58,7 +70,11 @@ class Chatbot:
         self.config={
             "configurable": {
                 "thread_id": thread_id
-            }
+            },
+            "metadata": {
+                "thread_id": thread_id
+            },
+            "run_name": "chat_turn"
         }
         stream_generator=self._compiled_graph.stream(
             {"messages": [HumanMessage(user_message)]},
@@ -67,8 +83,9 @@ class Chatbot:
         )
 
         for message_chunk, metadata in stream_generator:
-            if hasattr(message_chunk, "content"):
-                yield message_chunk.content
+            if isinstance(message_chunk, AIMessage):
+                if hasattr(message_chunk, "content"):
+                    yield message_chunk.content
 
     def chat_history(self, thread_id: str):
 
